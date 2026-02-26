@@ -1,5 +1,5 @@
 # Quantum_systems
-Repository with the Rydberg atom EIT and N-V center ODMR simulations
+Repository with the Rydberg atom EIT
 
 The scripts present in this repository are meant to reproduce results presented in the scientific article:
 Su et al. ‘Optimizing the Rydberg EIT spectrum in a thermal vapor’ Optics Express 3.2/17 (2022)
