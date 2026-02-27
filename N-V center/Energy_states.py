@@ -1,12 +1,16 @@
 import numpy as np
 import Functions as fct
 import matplotlib.pyplot as plt
+import sys
+import random
 
 """ Ref. paper doi:  DOI: 10.1038/NPHYS1969"""
 """ This script calculates the eigenstates profile (smearing) of 
 NV centers in a diamond sample under green laser illumination. 
  It generates a quantity which describes the energy states smearing and
  can be used to compute the ODMR spectrum. """
+
+dir = r"C:\Users\barbea43\OneDrive - imec\Documents\Picsys\N-V center\Results"
 
 ### Fundamental constants ### - Do not modify
 eo = 8.854 * 10 ** -12 # Permitivity vacuum [C^2.kg^-1.m^-3.s^2]
@@ -22,12 +26,12 @@ d_paral = 0.35 * 10 ** -2 # parallel susceptibility [Hz.m/V]
 
 ### Parameters ### - You can modify
 
-I = 13 * 10 ** 6 # green laser intensity [W/m^2]
-rho = 5000 # N-V center concentration in diamond sample [ppm]
+I = 13 * 10 ** 4 # green laser intensity [W/m^2]
+rho = 1000 # N-V center concentration in diamond sample [ppm]
 
 # Laser beam spot dimensions, we assume an ellipse shape (if width = height --> disc)
 d_spot_H = 0.1 * 10 ** -6 # Height ellipse [m]
-d_spot_W = d_spot_H # Width ellipse [m]
+d_spot_W = 0.1 * 10 ** -6 # Width ellipse [m]
 
 ###################################################################
 ###################################################################
@@ -43,9 +47,14 @@ d_spot_W = d_spot_H # Width ellipse [m]
 N = int(d_spot_H/lat)*int(d_spot_W/lat) # Number of diamond lattices in d_spot_H x d_spot_W square
 N_NV = int(rho * N / 10 ** 6) # number of N-V centers in d_spot_H x d_spot_W square
 
+# Debugging
+if N_NV == 0:
+      print('Need higher concentration of NV centers or bigger laser beam spot!')
+      sys.exit()
+
 # (x, y) max values --> correspond to number of diamond lattice in beam spot diameter
-x_max = int(np.sqrt(N))
-y_max = int(np.sqrt(N))
+x_max = max(int(d_spot_H/lat), int(d_spot_W/lat))
+y_max = max(int(d_spot_H/lat), int(d_spot_W/lat))
 
 Eo = np.sqrt(2*I/(c*n_d*eo)) # Laser field amplitude
 
@@ -56,9 +65,10 @@ Random_NV = fct.randomNV(x_max, y_max, N_NV)
 ### Create ellipse mask and apply it on my sample ###
 shape = x_max, y_max
 center = x_max/2, y_max/2
-axes = x_max/2, y_max/2
-Ellipse_mask = fct.ellipse_mask_2d(shape, center, axes, int(np.sqrt(N)))
+axes = int(d_spot_H/lat)/2, int(d_spot_W/lat)/2
+Ellipse_mask = fct.ellipse_mask_2d(shape, center, axes)
 Ellipse_array = np.multiply(Ellipse_mask, Random_NV)
+
 
 ### Create Gaussian profile and apply it on my sample with ellipse mask ###
 Gaussian = fct.twoD_Gaussian(np.arange(0, x_max), np.arange(0, y_max), Eo, center[0], center[1], center[0]/2, center[1]/2)
@@ -69,13 +79,19 @@ plt.figure()
 plt.pcolor(np.multiply(Gaussian, Ellipse_mask), edgecolors='none', linewidths=4)
 cbar = plt.colorbar(orientation="vertical")
 plt.title('Green laser beam spot profile')
+plt.xlabel(r'Diamond lattice cell $[0.35nm]$')
+plt.ylabel(r'Diamond lattice cell $[0.35nm]$')
 cbar.set_label(r'$|E_0|$')
+plt.savefig(dir + fr'\Field_distribution_Intensity{I}_Density{rho}_SpotH{d_spot_H}_SpotW{d_spot_W}')
 
-plt.figure(2)
+plt.figure()
 plt.pcolor(Gaussian_field_profile, edgecolors='none', linewidths=4)
 cbar = plt.colorbar(orientation="vertical")
 plt.title(r'N-V centers distribution ' + str(rho) + 'ppm')
 cbar.set_label(r'$|E_0|$')
+plt.xlabel(r'Diamond lattice cell $[0.35nm]$')
+plt.ylabel(r'Diamond lattice cell $[0.35nm]$')
+plt.savefig(dir + fr'\NV_distribution_Intensity{I}_Density{rho}_SpotH{d_spot_H}_SpotW{d_spot_W}')
 
 plt.show()
 
@@ -98,6 +114,8 @@ S0Ms0 = []
 S1Msp1 = []
 S1Msm1 = []
 Field = []
+DeltaE1 = []
+DeltaE2 = []
 
 # Loop over every single NV center
 for E_NV in no_zero:
@@ -129,7 +147,8 @@ for E_NV in no_zero:
       S0Ms0.append(eigenvalues[0]*Factor)
       S1Msm1.append(eigenvalues[1]*Factor)
       S1Msp1.append(eigenvalues[2]*Factor)
-
+      DeltaE1.append(abs(eigenvalues[0]-eigenvalues[1])*Factor)
+      DeltaE2.append(abs(eigenvalues[1]-eigenvalues[2])*Factor)
 
 ###################################################################
 ###################################################################
@@ -161,23 +180,23 @@ for i in range(len(S0Ms0)):
       Eigenfrequencies_ms1[idx] = 1 - abs(abs(S1Msm1[i] - np.mean(S1Msm1)) / np.mean(S1Msm1)) * 10 ** 6
 
 
-# Figures of the S=0 and S=1 eigenstates visualization
-plt.figure()
-plt.plot(Frequencies_ms0, Eigenfrequencies_ms0)
-plt.gca().set_yticks([])
-plt.xlabel('Frequency [MHz]')
-plt.title(r'GS relative frequency, $m_s=0$')
+########################################################################################################
 
+# Save the states energy splitting array
+np.random.shuffle(DeltaE1)
+np.save(dir + fr'\Energy splitting arrays\Energy_states_splitting_Intensity{I}_Density{rho}_SpotH{d_spot_H}_SpotW{d_spot_W}', DeltaE1)
+
+### Figures ###
+
+# Figures of the S=0 and S=1 eigenstates energy splitting visualization with respect to its mean value
 plt.figure()
-plt.plot(Frequencies_ms1, Eigenfrequencies_ms1)
-plt.gca().set_yticks([])
-xticks = np.arange(min(S1Msm1)-0.5 * 10 ** -1, max(S1Msp1)+0.5 * 10 ** -1, 0.05)
-xlabels = [f'{x:1.2f}' for x in xticks]
-plt.xticks(xticks, labels=xlabels)
-plt.xlabel('Frequency [MHz]')
-plt.title(r'Eigenstates relative frequency with respect to GS, $m_s=\pm 1$')
+Number_NV = np.arange(0, len(no_zero))
+plt.scatter(Number_NV, (np.array(DeltaE1)-np.mean(DeltaE1))*10**3)
+plt.xlabel('NV center index')
+plt.ylabel('Relative spin states splitting [kHz]')
+plt.title(r'Spin states splitting per NV center')
+plt.savefig(dir + fr'\Energy_states_splitting_Intensity{I}_Density{rho}_SpotH{d_spot_H}_SpotW{d_spot_W}')
 plt.show()
-
 
 # Figure to visualize the discrete eigenstates
 # fig, ax = plt.subplots(figsize=(6, 8))

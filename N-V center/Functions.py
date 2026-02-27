@@ -4,90 +4,67 @@ import random
 
 """ Function which solves the OBE for N-V center and returns density of states \rho_33 and \rho_44 """
 
-def Spectrum_NoSpinFlip(Gamma_p, Omega, gamma_2, omega_c, Ro, Stot, Bz):
-
-    ### Parameters ###
-
-    # Gyromagnetic ratio
-    gamma_e = 28 # [MHz/mT]
-
-    # for spin-conserving transitions (non spin-flip)
-    k41 = 0
-    k32 = 0
-    k35 = 0
-    k52 = 0.2  # [MHz]
-    k51 = 0.32  # [MHz]
-    k31 = 77  # [MHz]
-    k45 = 66  # [MHz]
-    k42 = k31
-    # Values taken from L. Robledo et al. New J. Phys. 13 025013 (2011)
-
-    # spin-lattice relaxation k21<<1
-    k21 = 0
-
-    # Energy ground state
-    D_GS = 2870 # [MHz]
-    omega_0 = 2*np.pi * D_GS #( D_GS + HF + gamma_e * Bz)
-    delta = omega_c-omega_0
-    gamma_2_p = k21/2+gamma_2+Gamma_p/2
-
-    # Square matrix to be solved with corresponding vector, Eqs. 2 in steady state
-    # Using matrix inversion method
-    # Basis = {rho_11, rho_22, rho_33, rho_44, rho_55, rho_12, rho_21}
-    Matrix = [[-Gamma_p-k21/2, k21/2, k31, k41, k51, -1j*Omega/2, 1j*Omega/2],
-              [k21/2, -Gamma_p-k21/2, k32, k42, k52, 1j*Omega/2, -1j*Omega/2],
-              [Gamma_p, 0, -(k35+k32+k31), 0, 0, 0, 0],
-              [0, Gamma_p, 0, -(k45+k42+k41), 0, 0, 0],
-              [0, 0, k35, k45, -(k52+k51), 0, 0],
-              [-1j*Omega/2, 1j*Omega/2, 0, 0, 0, -(gamma_2_p-1j*delta), 0],
-              [1j*Omega/2, -1j*Omega/2, 0, 0, 0, 0, -(gamma_2_p+1j*delta)]]
-    Vector = [0, 0, 0, 0, 0, 0, 0]
-    #Solution = np.linalg.solve(Matrix, Vector)
-    Solution = np.linalg.lstsq(Matrix, Vector)
-    Sol = Solution[0]
-
-    # Density of states
-    rho_33 = Sol[2]
-    rho_44 = Sol[3]
-    print(Solution, Sol)
-    # Calculation of the fluorescence ratio
-    Icw = ((k31 + k32) * rho_33) / (k31 + k32 + k35) + ((k41 + k42) * rho_44) / (k41 + k42 + k45)
-
-    # Sepctrum calculation
-    if Stot == 1 : # 14N case
-        A = 2.16 # [MHz]
-        S = Ro * Icw * ((delta + np.pi * A) + delta + (delta - np.pi * A))
-    elif Stot == 1/2: # 15N case
-        A = 3.03 # [MHz]
-        S = Ro * Icw * ((delta + np.pi * A / 2) + (delta - np.pi * A / 2))
-    else:
-        print(r'Wrong $S_{tot}$ value.')
-
-    # Returns spectrum
-    return S
-
-
-### Parameters ###
-
-# Gyromagnetic ratio
-gamma_e = 28 # [MHz/mT]
-
-# for spin-conserving transitions (non spin-flip)
-k41 = 0
-k32 = 0
-k35 = 0
-k52 = 2 * np.pi * 0.2  # [MHz]
-k51 = 2 * np.pi * 0.32  # [MHz]
-k31 = 2 * np.pi * 77  # [MHz]
-k45 = 2 * np.pi * 66  # [MHz]
-k42 = k31
-# Values taken from L. Robledo et al. New J. Phys. 13 025013 (2011)
-
-# spin-lattice relaxation k21<<1
-k21 = 0
-
-# Energy ground state
-D_GS = 2 * np.pi * 2870 # [MHz]
+# def Spectrum_NoSpinFlip(Gamma_p, Omega, gamma_2, omega_c, Ro, Stot, Bz):
+#
+#     ### Parameters ###
+#
+#     # Gyromagnetic ratio
+#     gamma_e = 28 # [MHz/mT]
+#
+#     # for spin-conserving transitions (non spin-flip)
+#     k41 = 0
+#     k32 = 0
+#     k35 = 0
+#     k52 = 0.2  # [MHz]
+#     k51 = 0.32  # [MHz]
+#     k31 = 77  # [MHz]
+#     k45 = 66  # [MHz]
+#     k42 = k31
+#     # Values taken from L. Robledo et al. New J. Phys. 13 025013 (2011)
+#
+#     # spin-lattice relaxation k21<<1
+#     k21 = 0
+#
+#     # Energy ground state
+#     D_GS = 2870 # [MHz]
+#     omega_0 = 2*np.pi * D_GS #( D_GS + HF + gamma_e * Bz)
+#     delta = omega_c-omega_0
+#     gamma_2_p = k21/2+gamma_2+Gamma_p/2
+#
+#     # Square matrix to be solved with corresponding vector, Eqs. 2 in steady state
+#     # Using matrix inversion method
+#     # Basis = {rho_11, rho_22, rho_33, rho_44, rho_55, rho_12, rho_21}
+#     Matrix = [[-Gamma_p-k21/2, k21/2, k31, k41, k51, -1j*Omega/2, 1j*Omega/2],
+#               [k21/2, -Gamma_p-k21/2, k32, k42, k52, 1j*Omega/2, -1j*Omega/2],
+#               [Gamma_p, 0, -(k35+k32+k31), 0, 0, 0, 0],
+#               [0, Gamma_p, 0, -(k45+k42+k41), 0, 0, 0],
+#               [0, 0, k35, k45, -(k52+k51), 0, 0],
+#               [-1j*Omega/2, 1j*Omega/2, 0, 0, 0, -(gamma_2_p-1j*delta), 0],
+#               [1j*Omega/2, -1j*Omega/2, 0, 0, 0, 0, -(gamma_2_p+1j*delta)]]
+#     Vector = [0, 0, 0, 0, 0, 0, 0]
+#     #Solution = np.linalg.solve(Matrix, Vector)
+#     Solution = np.linalg.lstsq(Matrix, Vector)
+#     Sol = Solution[0]
+#
+#     # Density of states
+#     rho_33 = Sol[2]
+#     rho_44 = Sol[3]
+#     print(Solution, Sol)
+#     # Calculation of the fluorescence ratio
+#     Icw = ((k31 + k32) * rho_33) / (k31 + k32 + k35) + ((k41 + k42) * rho_44) / (k41 + k42 + k45)
+#
+#     # Sepctrum calculation
+#     if Stot == 1 : # 14N case
+#         A = 2.16 # [MHz]
+#         S = Ro * Icw * ((delta + np.pi * A) + delta + (delta - np.pi * A))
+#     elif Stot == 1/2: # 15N case
+#         A = 3.03 # [MHz]
+#         S = Ro * Icw * ((delta + np.pi * A / 2) + (delta - np.pi * A / 2))
+#     else:
+#         print(r'Wrong $S_{tot}$ value.')
+#
+#     # Returns spectrum
+#     return S
 
 def Fluorescence(omega_0, Gamma_p, Omega, gamma_2, omega_c):
 
@@ -113,7 +90,28 @@ def Fluorescence(omega_0, Gamma_p, Omega, gamma_2, omega_c):
     return Icw_1stTerm + Icw_2ndTerm
 
 
-def Spectrum_NoSpinFlip_analytic(Gamma_p, Omega, gamma_2, omega_c, Ro, Stot, Bz):
+
+
+### Parameters ###
+
+# Gyromagnetic ratio
+gamma_e = 28 # [MHz/mT]
+
+# for spin-conserving transitions (non spin-flip)
+k41 = 0
+k32 = 0
+k35 = 0
+k52 = 2 * np.pi * 0.2  # [MHz]
+k51 = 2 * np.pi * 0.32  # [MHz]
+k31 = 2 * np.pi * 77  # [MHz]
+k45 = 2 * np.pi * 66  # [MHz]
+k42 = k31
+# Values taken from L. Robledo et al. New J. Phys. 13 025013 (2011)
+
+# spin-lattice relaxation k21<<1
+k21 = 0
+
+def Spectrum_NoSpinFlip_analytic(D_GS, Gamma_p, Omega, gamma_2, omega_c, Ro, Stot):
 
     # GS frequency
     omega_0 = D_GS
@@ -163,7 +161,7 @@ def twoD_Gaussian(x, y, Eo, xo, yo, sigma_x, sigma_y):
 
 
 
-def ellipse_mask_2d(shape, center, axes, N):
+def ellipse_mask_2d(shape, center, axes):
     """
     Create a 2D array of zeros with an axis-aligned ellipse of ones.
 
@@ -184,13 +182,13 @@ def ellipse_mask_2d(shape, center, axes, N):
         1 inside ellipse, 0 outside.
     """
 
-    H, W = shape
+    W, H = shape
     cx, cy = center
     ax, by = axes
 
     # Coordinate grid
-    x = np.linspace(0, W, N)
-    y = np.linspace(0, H, N)
+    x = np.linspace(0, W, W)
+    y = np.linspace(0, H, H)
     [X, Y] = np.meshgrid(x, y)
 
     # Ellipse equation: ((x-cx)/ax)^2 + ((y-cy)/by)^2 <= 1
