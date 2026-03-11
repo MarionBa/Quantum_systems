@@ -26,7 +26,7 @@ d_paral = 0.35 * 10 ** -2 # parallel susceptibility [Hz.m/V]
 
 ### Parameters ### - You can modify
 
-I = 13 * 10 ** 4 # green laser intensity [W/m^2]
+I = 1 * 10 ** 4 # green laser intensity [W/m^2]
 rho = 1000 # N-V center concentration in diamond sample [ppm]
 
 # Laser beam spot dimensions, we assume an ellipse shape (if width = height --> disc)

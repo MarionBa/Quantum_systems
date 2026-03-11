@@ -6,23 +6,25 @@ import matplotlib.pyplot as plt
 # Directory
 dir = r"C:\Users\barbea43\OneDrive - imec\Documents\Picsys\N-V center\Results"
 
-# Import energy states splitting array
-parameters = 'Intensity13000000_Density1000_SpotH1e-07_SpotW1e-07'
-Delta = np.load(dir + fr'\Energy splitting arrays\Energy_states_splitting_{parameters}.npy')
-
-# Which nitrogen isotope are your NV centers made of?
-Nisotope = 15
-
 
 ### Parameters ###
 
 omega_0 = 2 * np.pi * 2870 # [MHz]
 Ro = 1 # Baseline
+p = 10 # Factor for the excitation rate Gamma_p [m^2/J]
+I = 1 * 10 ** 4 # Green laser intensity [W/m^2]
+
+# Import energy states splitting array
+parameters = fr'Intensity{I}_Density1000_SpotH1e-07_SpotW1e-07'
+Delta = np.load(dir + fr'\Energy splitting arrays\Energy_states_splitting_{parameters}.npy')
+
+# Which nitrogen isotope are your NV centers made of?
+Nisotope = 14
 
 if Nisotope == 14:
     # Do not touch
     Stot = 1
-    Gamma_p = 2 * np.pi * 0.02 # [MHz]
+    Gamma_p = p * I / 10 ** 6 # [MHz]
     gamma_2 = 2 * np.pi * 0.7 # [MHz]
     # Touch: MW field strength
     Omega = 2 * np.pi * 0.03  # [MHz]
@@ -30,7 +32,7 @@ if Nisotope == 14:
 elif Nisotope == 15:
     # Do not touch
     Stot = 1 / 2
-    Gamma_p = 2 * np.pi * 0.05  # [MHz]
+    Gamma_p = p * I / 10 ** 6 # [MHz]
     gamma_2 = 2 * np.pi * 1  # [MHz]
     # Touch: MW field strenght
     Omega = 2 * np.pi * 0.1  # [MHz]
