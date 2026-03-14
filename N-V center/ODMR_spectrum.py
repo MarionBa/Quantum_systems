@@ -2,16 +2,19 @@ import numpy as np
 import Functions as fct
 import matplotlib.pyplot as plt
 
+""" Ref. paper: H. El-Ella et al. Vol. 25, No. 13 OPTICS EXPRESS 14809 (2017)"""
+""" This script calculates the fluorescence spectrum from the energy states calculated in 'Energy_states.py'. """
 
 # Directory
 dir = r"C:\Users\barbea43\OneDrive - imec\Documents\Picsys\N-V center\Results"
 
 
-### Parameters ###
-
+### Fundamental constants ### - Do not modify
 omega_0 = 2 * np.pi * 2870 # [MHz]
 Ro = 1 # Baseline
 p = 10 # Factor for the excitation rate Gamma_p [m^2/J]
+
+### Parameters ### - same parameter as in 'Energy_states.py'
 I = 1 * 10 ** 4 # Green laser intensity [W/m^2]
 
 # Import energy states splitting array

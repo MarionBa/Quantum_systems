@@ -220,4 +220,57 @@ def randomNV(x, y, N):
           Init_array[rand_x, rand_y] = 1
     return Init_array
 
+def randomNV_3D(x, y, z, N):
+    """
+        Generate random positions within 2D array.
+
+        Parameters
+        ----------
+        x, y, z :
+            Input array shape
+        N :
+            Number of NV center to be randomly positioned
+
+        Returns
+        -------
+        3D array : ndarray, shape (x, y, z) of zeros with random ones
+
+        """
+
+    Init_array = np.zeros((z, x, y))
+    for i in range(N):
+          rand_x = random.randrange(0, x, 1)
+          rand_y = random.randrange(0, y, 1)
+          rand_z = random.randrange(0, z, 1)
+          Init_array[rand_z, rand_x, rand_y] = 1
+    return Init_array
+
+def evanescent_mask_3d(Eo, shape, delta, lat):
+
+    """
+    Create a 3D array of ones with an exponential decay along the z axis.
+
+    Parameters
+    ----------
+    shape : (x, y, z)
+        Output array shape (rows, cols, depth).
+
+    Returns
+    -------
+    mask : ndarray, shape (x, y, z), dtype uint8
+    """
+
+    W, H, D = shape
+
+    # Array initialization
+    Array = np.ones((W, H))
+
+    # Evanescent field equation: Eo * exp(-z/delta)
+    inside = []
+    for z in range(D):
+        z_m = z * lat
+        inside.append(Array * Eo * np.exp(-z_m/delta))
+
+    return inside
+
 
