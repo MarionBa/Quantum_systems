@@ -84,7 +84,7 @@ for B in Mag_field:
     Delta_r = mu_B_over_hbar * gF_r * mF_r
 
     # Absorption cross-section
-    sigma_78 = fct.SigmaPerturbative(Delta_c, Delta_p, Delta_g, Delta_e, Delta_r, Delta_s, Omega_c,Omega_p, Gamma_e, gamma, B)
+    sigma_78 = fct.SigmaPerturbative(Delta_c, Delta_p, Delta_g, Delta_e, Delta_r, Delta_s, Omega_c, Omega_p, Gamma_e, gamma, B)
 
     #######################################################################
 

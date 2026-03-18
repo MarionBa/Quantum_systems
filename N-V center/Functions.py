@@ -1,5 +1,6 @@
 import numpy as np
 import random
+import matplotlib.pyplot as plt
 
 
 """ Function which solves the OBE for N-V center and returns density of states \rho_33 and \rho_44 """
@@ -66,6 +67,25 @@ import random
 #     # Returns spectrum
 #     return S
 
+### Parameters ###
+
+# Gyromagnetic ratio
+gamma_e = 28 # [MHz/mT]
+
+# for spin-conserving transitions (non spin-flip)
+k41 = 0
+k32 = 0
+k35 = 0
+k52 = 2 * np.pi * 0.2  # [MHz]
+k51 = 2 * np.pi * 0.32  # [MHz]
+k31 = 2 * np.pi * 77  # [MHz]
+k45 = 2 * np.pi * 66  # [MHz]
+k42 = k31
+# Values taken from L. Robledo et al. New J. Phys. 13 025013 (2011)
+
+# spin-lattice relaxation k21<<1
+k21 = 0
+
 def Fluorescence(omega_0, Gamma_p, Omega, gamma_2, omega_c):
 
     # Detunning
@@ -89,35 +109,31 @@ def Fluorescence(omega_0, Gamma_p, Omega, gamma_2, omega_c):
     Icw_2ndTerm = (Gamma_p*(k41+k42)/np.square(K4)) / (1 + 1/PP + Gamma_p/K4 + Gamma_p/(K3*PP) + k45*Gamma_p/(K4*K5) + k35*Gamma_p/(K5*K3*PP))
     return Icw_1stTerm + Icw_2ndTerm
 
+def Fluorescence_2states(omega_0, omega_1, Gamma_p, Omega, delta, omega_c):
+
+    # MW frequency
+    delta_c = omega_c-omega_0
+    Es = omega_1-omega_0
+
+    # Basis = {rho_11, rho_12, rho_21, rho_22}
+    Matrix = [[1, 0, 0, 1],
+              [Gamma_p, -1j*Omega/2, 1j*Omega/2, 0],
+              [-1j*Omega, -1j*Es+delta+1j*delta_c, 0, 1j*Omega/2],
+              [1j*Omega, 0, 1j*Es+delta-1j*delta_c, -1j*Omega],
+              [-Gamma_p, 1j*Omega, -1j*Omega, 0]]
+
+    Vector = [1, 0, 0, 0, 0]
+    Solution = np.linalg.lstsq(Matrix, Vector)
+    Sol = Solution[0]
+
+    return np.real(Sol[3])
 
 
-
-### Parameters ###
-
-# Gyromagnetic ratio
-gamma_e = 28 # [MHz/mT]
-
-# for spin-conserving transitions (non spin-flip)
-k41 = 0
-k32 = 0
-k35 = 0
-k52 = 2 * np.pi * 0.2  # [MHz]
-k51 = 2 * np.pi * 0.32  # [MHz]
-k31 = 2 * np.pi * 77  # [MHz]
-k45 = 2 * np.pi * 66  # [MHz]
-k42 = k31
-# Values taken from L. Robledo et al. New J. Phys. 13 025013 (2011)
-
-# spin-lattice relaxation k21<<1
-k21 = 0
 
 def Spectrum_NoSpinFlip_analytic(D_GS, Gamma_p, Omega, gamma_2, omega_c, Ro, Stot):
 
     # GS frequency
     omega_0 = D_GS
-
-    # Detuning
-    delta = omega_c - omega_0
 
     # Spectrum calculation
     if Stot == 1 : # 14N case
@@ -131,6 +147,25 @@ def Spectrum_NoSpinFlip_analytic(D_GS, Gamma_p, Omega, gamma_2, omega_c, Ro, Sto
         S = Ro * (Fluorescence(omega_0-np.pi*A, Gamma_p, Omega, gamma_2, omega_c) + Fluorescence(omega_0+np.pi*A, Gamma_p, Omega, gamma_2, omega_c))
     else:
         print(r'Wrong $S_{tot}$ value.')
+
+    # Returns spectrum
+    return S
+
+def Spectrum_NoSpinFlip_analytic_2states(Gamma_p, Omega, delta, omega_c, omega_0, omega_1, Ro, Stot):
+
+    # Spectrum calculation
+    if Stot == 1: # 14N case
+        # Hyperfine frequency
+        A = 2.16 # [MHz]
+        S = Ro * (Fluorescence_2states(omega_0-2*np.pi*A, omega_1, Gamma_p, Omega, delta, omega_c) + Fluorescence_2states(omega_0, omega_1, Gamma_p, Omega, delta, omega_c) + Fluorescence_2states(omega_0+2*np.pi*A, omega_1, Gamma_p, Omega, delta, omega_c))
+
+    elif Stot == 1/2: # 15N case
+        # Hyperfine frequency
+        A = 3.03 # [MHz]
+        S = Ro * (Fluorescence_2states(omega_0-np.pi*A, omega_1, Gamma_p, Omega, delta, omega_c) + Fluorescence_2states(omega_0+np.pi*A, omega_1, Gamma_p, Omega, delta, omega_c))
+    else:
+        print(r'Wrong $S_{tot}$ value.')
+
 
     # Returns spectrum
     return S
@@ -272,5 +307,85 @@ def evanescent_mask_3d(Eo, shape, delta, lat):
         inside.append(Array * Eo * np.exp(-z_m/delta))
 
     return inside
+
+def NV_centers_ionization(Er, E_NV):
+
+    """"
+
+    This function gives an effective value for the effect of the green laser intensity
+    on the NV^- centers energy states.
+
+    The green laser intensity indirectly influences the energy states of the NV^- center by
+    mean of electric charge neutralization N^+ + NV^- --> NV^0 leading to a Stark effect
+    on the ground states of the NV^- centers which is different for different green laser felt by the
+    NV^- center.
+
+    [1] Y.H. Yu et al. arXiv:2308.13351v2 [quant-ph] (2024)
+
+    Assumptions:
+    - Homogeneity of N^+, NV^0 and NV^- distributions
+    - Local laser field felt by NV^- affects local DC electric field
+
+    Input: Electric field felt by the NV center due to N^+
+
+    Output: Effective electric field felt by the NV center due to N^+ variation as results of green laser field
+    charge neutralization
+
+    """
+
+
+    ### Part 1: Behavior of the GS splitting as a function of the N concentration ###
+    # Parameters from Fig. 3 (b) of [1]
+    # N_conc_data = [100, 200, 300]
+    # GS_split_data = [10, 17, 20]
+    #
+    # # Fitting of these data points
+    # N_conc = np.linspace(0, 1000)
+    # GS_split = 15*np.arctan(0.01*N_conc) # Function which fits best the data points [1]
+    #
+    # Checking the fitting of the arctan function with the data from [1]
+    # plt.figure()
+    # p = np.polyfit(N_conc_data, GS_split_data, deg=2)
+    # plt.plot(N_conc, p[0]*N_conc**2 + p[1]*N_conc + p[2])
+    # plt.plot(N_conc, GS_split)
+    # plt.show()
+
+    ### Part 2: Behavior of the charge neutralization rate with laser field intensity ###
+    # From AI search of behavior in literature, we have 2 phases:
+        # 1- The superlinear phase 0- ~100 uW/um^2 (~I^2)
+        # 2- The linear phase >100 uW/um^2 (~I)
+
+    # I_thresh = 100 * 10 ** 6 # [W/m^2] the field threshold for which the charge recombination regime changes
+    # I_regime1 = np.linspace(10 ** -6, I_thresh, 1000) # [W/m^2]
+    # I_regime2 = np.linspace(I_thresh, 10 ** 10, 1000) # [W/m^2]
+    #
+    # I = np.linspace(10, 10 ** 10, 10 ** 3)
+    # Neutral = Er-(10**-7*I) # factor calculated with ionization cross sections
+    # Checking the behavior of my charge neutralization profile
+    # plt.figure()
+    # plt.plot(I, E_eff)
+    # plt.show()
+
+    ### Part 3: Calculate the corresponding N+ electric field felt for a given green laser field felt ###
+
+    ### Fundamental constants ### - Do not modify
+    eo = 8.854 * 10 ** -12 # Permitivity vacuum [C^2.kg^-1.m^-3.s^2]
+    c = 2.99 * 10 ** 8 # Speed of light [m.s^-1]
+    n_d = 2.417 # Refractive index for green light in diamond
+
+    I_NV = (E_NV ** 2 * c * n_d * eo) /2  # Laser field amplitude
+    I = np.linspace(I_NV-I_NV/2, I_NV+I_NV/2, 1000)
+    k0 = 2 * 10 ** -6 # (5.10^-7-2.10^6)
+    Neutral = Er-k0*I
+    arg = np.argmin(abs(I-I_NV))
+    E_eff = Neutral[arg]
+
+    return E_eff
+
+
+
+
+
+
 
 

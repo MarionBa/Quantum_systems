@@ -10,8 +10,8 @@ import random
 
 This script calculates the eigenstates profile (smearing) of 
 NV centers in a diamond sample under green laser illumination. 
- It generates a quantity which describes the energy states smearing and
- can be used to compute the ODMR spectrum. 
+It generates a quantity which describes the energy states smearing and
+can be used to compute the ODMR spectrum. 
  
  Please scroll down the code and select the type of NV centers illumination method:
  1- Confocal microscopy
@@ -35,10 +35,10 @@ d_paral = 0.35 * 10 ** -2 # parallel susceptibility [Hz.m/V]
 
 ### Parameters ### - You can modify
 
-I = 1 * 10 ** 4 # green laser intensity [W/m^2]
+I = 3 * 10 ** 5 # green laser intensity [W/m^2]
 
 # If bulk diamond sample
-rho = 1000 # N-V center concentration in diamond sample [ppm]
+rho = 5000 # N-V center concentration in diamond sample [ppm]
 
 # If nano diamonds
 N_d = 10 # Number of nano-diamonds
@@ -50,10 +50,6 @@ n_eff = 1.6 # Effective refractive index of the mode propagating along the WG
 n_medium = 1 # Refractive index of the medium where the evanescent field (does not) propagate
 lamb = 532 * 10 ** -9 # Wavelength of the green laser
 ko = 2 * np.pi / lamb # Wavevector of the green laser
-
-# Save parameters
-np.save(dir + fr'\Energy splitting arrays\Parameters_Intensity{I}_Density{rho}', [I, rho])
-
 
 
 ###################################################################
@@ -74,8 +70,8 @@ two different systems:
 
 
 ### Pick a system! ###
-CM = False
-EV = True
+CM = True
+EV = False
 
 if CM == True:
 
@@ -87,12 +83,21 @@ if CM == True:
 
       ### Initialization ###
 
+      Modality = 'ConfMic'
+
       # Laser beam spot dimensions, we assume an ellipse shape (if width = height --> disc)
       d_spot_H = 0.1 * 10 ** -6  # Height ellipse [m]
-      d_spot_W = 0.1 * 10 ** -6  # Width ellipse [m]
+      d_spot_W = 0.05 * 10 ** -6  # Width ellipse [m]
 
       N = int(d_spot_H / lat) * int(d_spot_W / lat)  # Number of diamond lattices in d_spot_H x d_spot_W square
       N_NV = int(rho * N / 10 ** 6)  # number of N-V centers in d_spot_H x d_spot_W square
+
+      # Parameters for effective Stark effect
+      N_concentration = 1000 * rho  # [ppm] concentration of N^+ ions in diamond sample
+      N_N = int(N_concentration * N / 10 ** 6)
+      Ratio_N_NV = N_concentration / rho
+      Er = Ratio_N_NV * 2.53 * 10 ** -10 / ((N_NV+N_N)/(d_spot_H*d_spot_W))
+      Er = Ratio_N_NV * 2.53 * 10 ** -10 / (d_d / (N_NV + N_N))
 
       # Debugging
       if N_NV == 0:
@@ -117,7 +122,7 @@ if CM == True:
 
 
       ### Create Gaussian profile and apply it on my sample with ellipse mask ###
-      Gaussian = fct.twoD_Gaussian(np.arange(0, x_max), np.arange(0, y_max), Eo, center[0], center[1], center[0]/2, center[1]/2)
+      Gaussian = fct.twoD_Gaussian(np.arange(0, x_max), np.arange(0, y_max), Eo, center[0], center[1], center[0]/2, center[1]/4)
       Field_profile = np.multiply(Ellipse_array, Gaussian)
 
 
@@ -125,20 +130,24 @@ if CM == True:
       plt.figure()
       plt.pcolor(np.multiply(Gaussian, Ellipse_mask), edgecolors='none', linewidths=4)
       cbar = plt.colorbar(orientation="vertical")
-      plt.title('Green laser beam spot profile')
-      plt.xlabel(r'Diamond lattice cell $[0.35nm]$')
-      plt.ylabel(r'Diamond lattice cell $[0.35nm]$')
-      cbar.set_label(r'$|E_0|$')
-      plt.savefig(dir + fr'\Field_distribution_Intensity{I}_Density{rho}_SpotH{d_spot_H}_SpotW{d_spot_W}')
+      plt.title('Green laser beam spot profile', fontsize=14)
+      plt.xlabel(r'Diamond lattice cell $[0.35nm]$', fontsize=14)
+      plt.ylabel(r'Diamond lattice cell $[0.35nm]$', fontsize=14)
+      plt.xticks(fontsize=14)
+      plt.yticks(fontsize=14)
+      cbar.set_label(r'$|E_0|$', fontsize=14)
+      plt.savefig(dir + fr'\Field_distributionConfMic_Intensity{I}_Density{rho}_SpotH{d_spot_H}_SpotW{d_spot_W}')
 
       plt.figure()
       plt.pcolor(Field_profile, edgecolors='none', linewidths=4)
       cbar = plt.colorbar(orientation="vertical")
-      plt.title(r'N-V centers distribution ' + str(rho) + 'ppm')
-      cbar.set_label(r'$|E_0|$')
-      plt.xlabel(r'Diamond lattice cell $[0.35nm]$')
-      plt.ylabel(r'Diamond lattice cell $[0.35nm]$')
-      plt.savefig(dir + fr'\NV_distribution_Intensity{I}_Density{rho}_SpotH{d_spot_H}_SpotW{d_spot_W}')
+      plt.title(r'N-V centers distribution ' + str(rho) + 'ppm', fontsize=14)
+      cbar.set_label(r'$|E_0|$', fontsize=14)
+      plt.xlabel(r'Diamond lattice cell $[0.35nm]$', fontsize=14)
+      plt.ylabel(r'Diamond lattice cell $[0.35nm]$', fontsize=14)
+      plt.xticks(fontsize=14)
+      plt.yticks(fontsize=14)
+      plt.savefig(dir + fr'\NV_distributionConfMic_Intensity{I}_Density{rho}_SpotH{d_spot_H}_SpotW{d_spot_W}')
 
       plt.show()
 
@@ -152,6 +161,8 @@ elif EV == True:
 
       ### Initialization ###
 
+      Modality = 'Ev'
+
       # WG surface which generates evanescent field
       d_spot_H = 0.5 * 10 ** -6  # Length WG [m]
       d_spot_W = 0.15 * 10 ** -6  # Width WG [m]
@@ -159,6 +170,11 @@ elif EV == True:
       N = int(d_d / lat) * int(d_d / lat)  # Number of diamond lattices in a nano diamond - assumed to be squared nano diamonds
       N_nano = int(rho * N / 10 ** 6) * N_d
 
+      # Parameters for effective Stark effect
+      N_concentration = 10 ** 3 * rho_nano  # [ppm] concentration of N^+ ions in nano diamond sample (10^3 - 10^5)
+      N_N = int(N_concentration * N / 10 ** 6) * N_d
+      Ratio_N_NV = N_concentration/rho_nano
+      Er = Ratio_N_NV * 2.53 * 10 ** -10 / (d_d/(N_nano + N_N))
 
       # (x, y) max values --> correspond to number of diamond lattice in beam spot diameter
       x_max = int(d_spot_W / d_d)
@@ -192,6 +208,7 @@ elif EV == True:
       ax.set_xlabel(r'Distance from waveguide [$\mu$m]')
       ax.set_ylabel(r'Waveguide width [$\mu$m]')
       ax.set_zlabel(r'Waveguide length [$\mu$m]')
+      #plt.savefig(dir + fr'\NV_feltFieldConfMic_Intensity{I}_Density{rho}_SpotH{d_spot_H}_SpotW{d_spot_W}')
       ax.set_box_aspect([2, 0.4, 1])
 
 
@@ -204,6 +221,7 @@ elif EV == True:
       plt.vlines(-0.01, min(Intensity), max(Intensity), linewidth=25, colors='lightblue')
       plt.ylim(min(Intensity), max(Intensity))
       plt.xlim(-0.02, max(z*10**6))
+      #plt.savefig(dir + fr'\Field_distributionEv_Intensity{I}_Density{rho}_SpotH{d_spot_H}_SpotW{d_spot_W}')
       plt.show()
 
 
@@ -230,8 +248,11 @@ S0Ms0 = []
 S1Msp1 = []
 S1Msm1 = []
 Field = []
+Field_Stark = []
 DeltaE1 = []
 DeltaE2 = []
+
+a = fct.NV_centers_ionization(100, 10)
 
 # Loop over every single NV center
 for E_NV in no_zero:
@@ -239,10 +260,14 @@ for E_NV in no_zero:
       # Save information about the electric field distribution
       Field.append(E_NV)
 
+      # Save information about the felt Stark effect
+      E_eff = fct.NV_centers_ionization(Er, E_NV)
+      Field_Stark.append(E_eff)
+
       ### Electric field initialization for NV center ###
       Ez = 0 # z direction polarization: 0 except in waveguides on chip!
-      Ex = E_NV/2 # Polarization along x axis
-      Ey = np.sqrt(np.square(E_NV)-np.square(Ex)) # Resulting polarization along y axis
+      Ex = E_eff / 2 # Polarization along x axis
+      Ey = np.sqrt(np.square(E_eff)-np.square(Ex)) # Resulting polarization along y axis
 
       ### Definition of parameters Hamiltonian according to polarization field ###
       Pi_z = d_paral * Ez
@@ -299,17 +324,19 @@ for i in range(len(S0Ms0)):
 ########################################################################################################
 
 # Save the states energy splitting array
-np.random.shuffle(DeltaE1)
-np.save(dir + fr'\Energy splitting arrays\Energy_states_splitting_Intensity{I}_Density{rho}_SpotH{d_spot_H}_SpotW{d_spot_W}', DeltaE1)
+#np.random.shuffle(DeltaE1)
+np.save(dir + fr'\Energy splitting arrays\Energy_splitting', DeltaE1)
+np.save(dir + fr'\Energy splitting arrays\Laser_field', Field)
+
 
 ### Figures ###
 
 # Figures of the S=0 and S=1 eigenstates energy splitting visualization with respect to its mean value
 plt.figure()
 Number_NV = np.arange(0, len(no_zero))
-plt.scatter(Number_NV, (np.array(DeltaE1)-np.mean(DeltaE1))*10**3)
+plt.scatter(Number_NV, (np.array(DeltaE1)-np.mean(DeltaE1))*10**6)
 plt.xlabel('NV center index')
-plt.ylabel('Relative spin states splitting [kHz]')
+plt.ylabel('Relative spin states splitting [Hz]')
 plt.title(r'Spin states splitting per NV center')
 #plt.savefig(dir + fr'\Energy_states_splitting_Intensity{I}_Density{rho}_SpotH{d_spot_H}_SpotW{d_spot_W}')
 plt.show()
