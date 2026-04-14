@@ -22,9 +22,9 @@ can be used to compute the ODMR spectrum.
 dir = r"C:\Users\barbea43\OneDrive - imec\Documents\Picsys\N-V center\Results"
 
 ### Fundamental constants ### - Do not modify
-eo = 8.854 * 10 ** -12 # Permitivity vacuum [C^2.kg^-1.m^-3.s^2]
-c = 2.99 * 10 ** 8 # Speed of light [m.s^-1]
-n_d = 2.417 # Refractive index for green light in diamond
+eo = 8.854 * 10 ** -12  # Permitivity vacuum [C^2.kg^-1.m^-3.s^2]
+c = 2.99 * 10 ** 8  # Speed of light [m.s^-1]
+n_d = 2.417  # Refractive index for green light in diamond
 D_GS = 2.87 * 10 ** 9 # Ground state bare energy N-V center [Hz]
 lat = 0.3567 * 10 ** -9 # [m] diamond lattice spacing
 
@@ -35,14 +35,14 @@ d_paral = 0.35 * 10 ** -2 # parallel susceptibility [Hz.m/V]
 
 ### Parameters ### - You can modify
 
-I = 3 * 10 ** 5 # green laser intensity [W/m^2]
+I = 5 * 10 ** 8 # green laser intensity [W/m^2]
 
 # If bulk diamond sample
-rho = 5000 # N-V center concentration in diamond sample [ppm]
+rho = 100 # N-V center concentration in diamond sample [ppm]
 
 # If nano diamonds
 N_d = 10 # Number of nano-diamonds
-rho_nano = 500 # N-V center concentration in diamond sample [ppm]
+rho_nano = 100 # N-V center concentration in diamond sample [ppm]
 d_d = 0.05 * 10 ** -6 # Diameter nano diamond [m]
 
 # Parameters for evanescent field
@@ -70,8 +70,8 @@ two different systems:
 
 
 ### Pick a system! ###
-CM = True
-EV = False
+CM = False
+EV = True
 
 if CM == True:
 
@@ -87,13 +87,13 @@ if CM == True:
 
       # Laser beam spot dimensions, we assume an ellipse shape (if width = height --> disc)
       d_spot_H = 0.1 * 10 ** -6  # Height ellipse [m]
-      d_spot_W = 0.05 * 10 ** -6  # Width ellipse [m]
+      d_spot_W = 0.1 * 10 ** -6  # Width ellipse [m]
 
       N = int(d_spot_H / lat) * int(d_spot_W / lat)  # Number of diamond lattices in d_spot_H x d_spot_W square
       N_NV = int(rho * N / 10 ** 6)  # number of N-V centers in d_spot_H x d_spot_W square
 
       # Parameters for effective Stark effect
-      N_concentration = 1000 * rho  # [ppm] concentration of N^+ ions in diamond sample
+      N_concentration = 10 * rho  # [ppm] concentration of N^+ ions in diamond sample
       N_N = int(N_concentration * N / 10 ** 6)
       Ratio_N_NV = N_concentration / rho
       Er = Ratio_N_NV * 2.53 * 10 ** -10 / ((N_NV+N_N)/(d_spot_H*d_spot_W))
@@ -122,7 +122,7 @@ if CM == True:
 
 
       ### Create Gaussian profile and apply it on my sample with ellipse mask ###
-      Gaussian = fct.twoD_Gaussian(np.arange(0, x_max), np.arange(0, y_max), Eo, center[0], center[1], center[0]/2, center[1]/4)
+      Gaussian = fct.twoD_Gaussian(np.arange(0, x_max), np.arange(0, y_max), Eo, center[0], center[1], center[0]/2, center[1]/2)
       Field_profile = np.multiply(Ellipse_array, Gaussian)
 
 
@@ -164,8 +164,8 @@ elif EV == True:
       Modality = 'Ev'
 
       # WG surface which generates evanescent field
-      d_spot_H = 0.5 * 10 ** -6  # Length WG [m]
-      d_spot_W = 0.15 * 10 ** -6  # Width WG [m]
+      d_spot_H = 0.8 * 10 ** -6  # Length WG [m]
+      d_spot_W = 0.4 * 10 ** -6  # Width WG [m]
 
       N = int(d_d / lat) * int(d_d / lat)  # Number of diamond lattices in a nano diamond - assumed to be squared nano diamonds
       N_nano = int(rho * N / 10 ** 6) * N_d
@@ -185,15 +185,32 @@ elif EV == True:
       ### Generate random nano diamonds positions in my sample ###
       Random_d = fct.randomNV_3D(x_max, y_max, z_max, N_nano)
 
+      # Create a field intensity loss due to the scattering nature of the nano diamonds
+      I0 = I
+      I_loss = []
+      for xi in range(len(Random_d)):
+            Index = np.nonzero(Random_d[xi, :, :])
+            num_unique = len(set(Index[0]))
+            I_new = I0 * 0.977 ** num_unique # 0.977 corresponds to the loss 0.1dB of field after interaction with a nano diamond
+            I0 = I_new
+            I_loss.append(I_new)
+
 
       ### Create an evanescent field mask and apply it on my sample ###
       delta = 1 / (ko * np.sqrt(n_eff ** 2 - n_medium ** 2)) # Evanescent field depth
       shape = x_max, y_max, z_max
 
-      Eo = np.sqrt(2 * I / (c * n_d * eo))  # Laser field amplitude
-
-      Evanescent_mask = fct.evanescent_mask_3d(Eo, shape, delta, lat)
+      Eo = np.sqrt(2 * I / (c * n_d * eo)) # Laser field amplitude
+      Evanescent_mask = fct.evanescent_mask_3d(I_loss, shape, delta, lat)
       Field_profile = np.multiply(Evanescent_mask, Random_d)
+
+      # Test figure
+      # plt.figure()
+      # plt.imshow(Evanescent_mask[0,:,:])
+      # plt.figure()
+      # plt.imshow(Evanescent_mask[len(Evanescent_mask)-1, :, :])
+      # plt.show()
+
 
       # Check plots
       fig = plt.figure()
@@ -210,6 +227,9 @@ elif EV == True:
       ax.set_zlabel(r'Waveguide length [$\mu$m]')
       #plt.savefig(dir + fr'\NV_feltFieldConfMic_Intensity{I}_Density{rho}_SpotH{d_spot_H}_SpotW{d_spot_W}')
       ax.set_box_aspect([2, 0.4, 1])
+
+      # Save the distance of the NV center from the WG
+      np.save(dir + fr'\Energy splitting arrays\NV_distance', z)
 
 
       plt.figure(figsize=(12, 5))
@@ -242,7 +262,6 @@ elif (EV == False) & (CM == False):
 # Selecting the NV centers in my sample and extracting their coordinates
 nonzero_indices = np.nonzero(Field_profile)
 no_zero = Field_profile[nonzero_indices]
-
 # Initializing arrays
 S0Ms0 = []
 S1Msp1 = []
@@ -324,7 +343,7 @@ for i in range(len(S0Ms0)):
 ########################################################################################################
 
 # Save the states energy splitting array
-#np.random.shuffle(DeltaE1)
+#np.random.shuffle(Field)
 np.save(dir + fr'\Energy splitting arrays\Energy_splitting', DeltaE1)
 np.save(dir + fr'\Energy splitting arrays\Laser_field', Field)
 
@@ -338,6 +357,15 @@ plt.scatter(Number_NV, (np.array(DeltaE1)-np.mean(DeltaE1))*10**6)
 plt.xlabel('NV center index')
 plt.ylabel('Relative spin states splitting [Hz]')
 plt.title(r'Spin states splitting per NV center')
+#plt.savefig(dir + fr'\Energy_states_splitting_Intensity{I}_Density{rho}_SpotH{d_spot_H}_SpotW{d_spot_W}')
+
+# Figures of the S=0 and S=1 eigenstates energy splitting visualization with respect to its mean value
+plt.figure()
+Number_NV = np.arange(0, len(no_zero))
+plt.scatter(Number_NV, Field)
+plt.xlabel('NV center index')
+plt.ylabel('Electric field')
+plt.title(r'Electric field per NV center')
 #plt.savefig(dir + fr'\Energy_states_splitting_Intensity{I}_Density{rho}_SpotH{d_spot_H}_SpotW{d_spot_W}')
 plt.show()
 

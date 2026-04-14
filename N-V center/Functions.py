@@ -88,6 +88,10 @@ k21 = 0
 
 def Fluorescence(omega_0, Gamma_p, Omega, gamma_2, omega_c):
 
+    """ Calculation of the analytical equation solution of the OBE in
+    H. El-Ella et al. “Optimised frequency modulation for continuous-wave
+    optical magnetic resonance sensing using nitrogen-vacancy ensembles” Vol. 25, No. 13 OPTICS EXPRESS (2017)"""
+
     # Detunning
     delta = omega_c-omega_0
 
@@ -111,6 +115,8 @@ def Fluorescence(omega_0, Gamma_p, Omega, gamma_2, omega_c):
 
 def Fluorescence_2states(omega_0, omega_1, Gamma_p, Omega, delta, omega_c):
 
+    """ Calculation of the OBE for a 2 levels NV center system """
+
     # MW frequency
     delta_c = omega_c-omega_0
     Es = omega_1-omega_0
@@ -131,6 +137,10 @@ def Fluorescence_2states(omega_0, omega_1, Gamma_p, Omega, delta, omega_c):
 
 
 def Spectrum_NoSpinFlip_analytic(D_GS, Gamma_p, Omega, gamma_2, omega_c, Ro, Stot):
+
+    """ Calculation of the fluorescence spectrum from the solution of the OBE
+      H. El-Ella et al. “Optimised frequency modulation for continuous-wave
+      optical magnetic resonance sensing using nitrogen-vacancy ensembles” Vol. 25, No. 13 OPTICS EXPRESS (2017)"""
 
     # GS frequency
     omega_0 = D_GS
@@ -153,6 +163,8 @@ def Spectrum_NoSpinFlip_analytic(D_GS, Gamma_p, Omega, gamma_2, omega_c, Ro, Sto
 
 def Spectrum_NoSpinFlip_analytic_2states(Gamma_p, Omega, delta, omega_c, omega_0, omega_1, Ro, Stot):
 
+    """ Calculation of the fluorescence spectrum from the solution of the 2 levels OBE """
+
     # Spectrum calculation
     if Stot == 1: # 14N case
         # Hyperfine frequency
@@ -169,6 +181,29 @@ def Spectrum_NoSpinFlip_analytic_2states(Gamma_p, Omega, delta, omega_c, omega_0
 
     # Returns spectrum
     return S
+
+
+def OBE_3levels(omega_0, Gamma_p, Omega, omega_c, gamma_2):
+
+    Delta = omega_c-omega_0
+
+    # Basis = {rho_00, rho_+1+1, rho_0+1, rho_0-1, rho_+10, rho_-10, rho_+1-1, rho_-1+1}
+    Matrix = [[-2*Gamma_p, Gamma_p, 1j*Omega/2, 0, -1j*Omega/2, 0, 0, 0],
+              [0, 0, -1j*Omega/2, 0, 1j*Omega/2, 0, 0, 0],
+              [1j*Omega/2, -1j*Omega/2, -(1j*Delta+Gamma_p+gamma_2), 0, 0, 0, 0, 0],
+              [0, 0, 0, -(Gamma_p+gamma_2), 0, 0, -1j*Omega/2, 0],
+              [-1j*Omega/2, 1j*Omega/2, 0, 0, 1j*Delta-Gamma_p-gamma_2/2, 0, 0, 0],
+              [0, 0, 0, 0, 0, -(Gamma_p+gamma_2/2), 0, 1j*Omega/2],
+              [0, 0, 0, -1j*Omega/2, 0, 0, 1j*Delta, 0],
+              [0, 0, 0, 0, 0, 1j*Omega/2, 0, -1j*Delta],
+              [1, 1, 0, 0, 0, 0, 0, 0]]
+
+    Vector = [0, 0, 0, 0, 0, 0, 0, 0, 1]
+    Solution = np.linalg.lstsq(Matrix, Vector)
+    Sol = Solution[0]
+
+    return np.real(Sol[0])
+
 
 
 def abs_coef(concentration): # Concentration in ppm
@@ -280,7 +315,7 @@ def randomNV_3D(x, y, z, N):
           Init_array[rand_z, rand_x, rand_y] = 1
     return Init_array
 
-def evanescent_mask_3d(Eo, shape, delta, lat):
+def evanescent_mask_3d(I_loss, shape, delta, lat):
 
     """
     Create a 3D array of ones with an exponential decay along the z axis.
@@ -298,15 +333,21 @@ def evanescent_mask_3d(Eo, shape, delta, lat):
     W, H, D = shape
 
     # Array initialization
-    Array = np.ones((W, H))
+    Array = np.ones((D, W, H))
+
+    # Fundamental constants
+    eo = 8.854 * 10 ** -12  # Permitivity vacuum [C^2.kg^-1.m^-3.s^2]
+    c = 2.99 * 10 ** 8  # Speed of light [m.s^-1]
+    n_d = 2.417  # Refractive index for green light in diamond
 
     # Evanescent field equation: Eo * exp(-z/delta)
-    inside = []
     for z in range(D):
-        z_m = z * lat
-        inside.append(Array * Eo * np.exp(-z_m/delta))
+        for x in range(H):
+            Eo = np.sqrt(2 * I_loss[x] / (c * n_d * eo))
+            z_m = z * lat
+            Array[z, :, x] = Eo * Array[z, :, x] * np.exp(-z_m/delta)
 
-    return inside
+    return Array
 
 def NV_centers_ionization(Er, E_NV):
 
@@ -381,6 +422,11 @@ def NV_centers_ionization(Er, E_NV):
     E_eff = Neutral[arg]
 
     return E_eff
+
+
+def Gauss(x, A, B):
+    """ Returns a Gaussian function """
+    return A * np.exp(-B*x**2)
 
 
 

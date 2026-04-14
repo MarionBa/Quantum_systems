@@ -5,8 +5,7 @@ import random
 from scipy.signal import peak_widths, find_peaks
 from scipy.optimize import curve_fit
 
-""" Ref. paper: H. El-Ella et al. Vol. 25, No. 13 OPTICS EXPRESS 14809 (2017)"""
-""" This script calculates the fluorescence spectrum from the energy states calculated in 'Energy_states.py'. """
+""" This script calculates the fluorescence spectrum from individual NV centers and how they feel the green laser field """
 
 # Directory
 dir = r"C:\Users\barbea43\OneDrive - imec\Documents\Picsys\N-V center\Results"
@@ -23,11 +22,6 @@ lamb = 675 * 10 ** -9 # Wavelength of the fluorescence field (central wavelength
 ko = 2 * np.pi / lamb # Wavevector of the fluorescence field
 gamma_e = 28 * 10 ** 3 # [MHz] gyromagnetic ratio
 
-# Import energy states splitting array
-Delta = np.load(r'C:\Users\barbea43\OneDrive - imec\Documents\Picsys\N-V center\Results\Energy splitting arrays\Energy_splitting.npy')
-Field = np.load(r'C:\Users\barbea43\OneDrive - imec\Documents\Picsys\N-V center\Results\Energy splitting arrays\Laser_field.npy')
-#np.random.shuffle(Field) # create a randomness in the electric field array instead of the evanescent profile which was computed in 'Energy_states.py'
-
 # Which modality
 Modality = 'Ev'
 
@@ -37,66 +31,98 @@ if Modality == 'Ev':
 else:
     print('Confocal microscopy modality, no LDOS considerations.')
 
+# Import energy states splitting array
+Field = np.load(r'C:\Users\barbea43\OneDrive - imec\Documents\Picsys\N-V center\Results\Energy splitting arrays\Laser_field.npy')
+
 # Which nitrogen isotope are your NV centers made of?
-Nisotope = 15
+Nisotope = 14
+
 
 if Nisotope == 14:
     # Do not touch
     Stot = 1
-    gamma_2 = 2 * np.pi * 0.7 # [MHz] single NV center 10^4-10^6 s^-1 but take data from ref. paper
+    delta = 2 * np.pi * 0.7 # [MHz]
+
     # Touch: MW field strength
     Omega = 2 * np.pi * 0.03  # [MHz]
-
 
 elif Nisotope == 15:
     # Do not touch
     Stot = 1 / 2
-    gamma_2 = 2 * np.pi * 1  # [MHz] single NV center 10^4-10^6 s^-1 but take data from ref. paper
+    delta = 2 * np.pi * 1 # [MHz]
+
     # Touch: MW field strenght
     Omega = 2 * np.pi * 0.1  # [MHz]
 
 else:
     print('Wrong nitrogen isotope!')
 
+
+### Different dephasing rates ###
+
+# Magnetic
+gamma_2_mag = 1 # [MHz] for nano diamond (up to 10MHz)
+
+# MW
+Gamma_rel = 1 # [MHz] spin pumping rate, up to 5
+gamma_2_MW = Omega ** 2 / Gamma_rel
+
+
+
 # Coupling MW field - array initialization
 omega_c_array = np.linspace(omega_0-100, omega_0+100, 1000)
+
 
 # Spectra calculation
 spectra = []
 FWHM = []
-Delta_extrema = [min(Delta), max(Delta)]
-n = 0
-for D in Delta:
+for n in range(len(Field)):
 
-    # Shifted energy splitting
-    D_GS = 2 * np.pi * D # [MHz]
-    #D_GS = omega_0  # Ground state bare energy N-V center [MHz]
-
-    ### Laser field felt by the NV center: accounts for random orientation of NV center with respect to green laser polarization ###
     # Select random number between 0 and 1 --> gives us the weight of the interaction between laser field and NV center
     Rand_NV_orientation = random.uniform(0, 1)
-    Gamma_p = Rand_NV_orientation * p * Field[n] / (10 ** 6) # [MHz]
+    Gamma_p = Rand_NV_orientation * p * Field[n] / (10 ** 6)  # [MHz]
+
+    ### rest of the dephasing rate ###
+
+    # Optical dephasing rate
+    eta = 0.5  # Parameter from 0.1 to 1 --> how strong your dephasing depends on your laser (system depdendent)
+    gamma_2_laser = eta * Gamma_p
+
+    # Total dephasing
+    gamma_2 = gamma_2_mag + gamma_2_laser + gamma_2_MW
+
+    # Info about the regime, intermediate gamma_2 ~ 0.01 - 1 * Gamma_p
     print('Decoherence rate:', gamma_2, 'Green laser pump rate:', Gamma_p)
 
     spectrum = []
     contrast = []
+    w = 0.2 # Weight to add spin relaxation in model --> phenomenological, depends on system
     for omega_c in omega_c_array:
+
+        if Nisotope == 14:
+            A = 2.16  # [MHz]
+            Fluorescence = fct.OBE_3levels(omega_0 - w * 2 * np.pi * A, Gamma_p, Omega, omega_c, gamma_2) + fct.OBE_3levels(omega_0, Gamma_p, Omega, omega_c, gamma_2) + fct.OBE_3levels(omega_0 + w * 2 * np.pi * A, Gamma_p, Omega, omega_c, gamma_2)
+        elif Nisotope == 15:
+            A = 3.03  # [MHz]
+            Fluorescence = fct.OBE_3levels(omega_0 - w * np.pi * A, Gamma_p, Omega, omega_c, gamma_2) + fct.OBE_3levels(omega_0 + w * np.pi * A, Gamma_p, Omega, omega_c, gamma_2)
 
         if Modality == 'Ev':
 
             # Here we account for effective LDOS effect of the distance of the NV center with respect to the WG
             Distance_LDOS = Distance_WG[n] * lat
-            Bare_fluorescence = fct.Spectrum_NoSpinFlip_analytic(D_GS, Gamma_p, Omega, gamma_2, omega_c, Ro, Stot)
 
             # Effect of evanescent coupling back in the WG
             delta = 1 / (ko * np.sqrt(n_eff ** 2 - n_medium ** 2))  # Evanescent field depth (same as for evanescent field coming from the waveguide, because of reciprocity)
-            LDOS_fluorescence = Bare_fluorescence * np.exp(-2*Distance_LDOS/delta)
-            spectrum.append(LDOS_fluorescence)
+            LDOS_fluorescence = Fluorescence * np.exp(-2 * Distance_LDOS / delta)
+            spectrum.append(Ro*(1-LDOS_fluorescence))
+
         else:
-            spectrum.append(fct.Spectrum_NoSpinFlip_analytic(D_GS, Gamma_p, Omega, gamma_2, omega_c, Ro, Stot))
+            spectrum.append(Ro*(1-Fluorescence))
 
     spectra.append(spectrum)
-    n = n+1
+
+    # Figure check
+
 
     ### Calculation of contrast and linewidth ###
 
@@ -192,5 +218,4 @@ plt.show()
 
 # Export final spectrum
 np.save(dir + fr'\Energy splitting arrays\ODMR_spectrum_N{Nisotope}_I{max(Field)}.npy', y_lower)
-
 
