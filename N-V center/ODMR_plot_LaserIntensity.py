@@ -1,6 +1,8 @@
 import numpy as np
-import Functions as fct
 import matplotlib.pyplot as plt
+
+""" Just a small script to plot two fluorescence spectra of NV centers with different 
+'felt' electric field """
 
 
 # Directory

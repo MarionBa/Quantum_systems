@@ -2,6 +2,10 @@ import numpy as np
 import Functions as fct
 import matplotlib.pyplot as plt
 
+""" Script which reproduces the ODMR spectrum as shown in the reference paper:
+H. El-Ella et al. “Optimised frequency modulation for continuous-wave optical
+ magnetic resonance sensing using nitrogen-vacancy ensembles” Vol. 25, No. 13 OPTICS EXPRESS (2017)
+ using the parameters of the paper """
 
 ### 14N ###
 Stot = 1
